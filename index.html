@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" type="image/x-icon" href="./img/favicon.png">
+  <title>Map Converter</title>
+</head>
+
+<body>
+  <div class="root">
+
+    <div class="flex-item header">
+      <img src="./img/logo.png" alt="Timberborn Logo" class="logo">
+      <img src="./img/banner.png" alt="Name Banner" class="banner">
+    </div>
+
+    <div class="flex-item sub-flex menu-pane">
+
+      <div class="flex-item description container">
+        <h1 class="bold">Convert the difficulty of your save game</h1>
+        <ul class="list">
+          <li>Select the difficulty you want to swap the save to use</li>
+          <li>Select the button below to open the file picker</li>
+          <li>Navigate to your Timberborn save game location</li>
+          <li>Select the save game file you wish to convert</li>
+          <li>Once the conversion is done, the converted file will download</li>
+          <li>Find the location that you want to move this save to<br><i>You will likely need to create a new folder
+              inside the save location to add a new colony</i></li>
+          <li>Cut and paste this downloaded .timber file inside the new colony's folder</li>
+          <li>Launch the game and enjoy!</li>
+        </ul>
+      </div>
+
+      <div>
+        <input type="radio" id="easy" name="difficulty" value="easy">
+        <label for="easy">Easy</label><br>
+        <input type="radio" id="medium" name="difficulty" value="medium">
+        <label for="medium">Medium</label><br>
+        <input type="radio" id="hard" name="difficulty" value="hard">
+        <label for="hard">Hard</label>
+      </div>
+
+      <div class="flex-item fileselect">
+        <input type="file" name="file" id="file" class="inputfile" accept=".timber">
+        <label for="file" class="button">Choose a file</label>
+      </div>
+
+      <div class="flex-item container">
+        <p>If you have any issues, feel free to get in touch on Discord:</p>
+        <a href="https://discordapp.com/channels/@me/394895775378833408/">
+          <svg class="svgObject" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 127.14 96.36">
+            <path fill="#fff"
+              d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,52.84,122.09,29.11,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,46,96.12,53,91.08,65.69,84.69,65.69Z" />
+          </svg>
+        </a>
+      </div>
+
+    </div>
+
+  </div>
+
+  <div class="disclaimer">
+    <h1>Disclaimer:</h1>
+    <p>This tool is not associated with Mechanistry or the development team of Timberborn</p>
+  </div>
+
+  <script>
+    // Read a file as text async
+    async function readFile(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsText(file);
+      });
+    }
+
+    // File selection
+    function handleFileSelection() {
+      const fileInput = document.getElementById('file');
+      fileInput.addEventListener('change', async function (event) {
+        // Check difficulty
+        const difficulty = document.querySelector('input[name="difficulty"]:checked').id;
+        if (difficulty == null || !(difficulty == "easy" || difficulty == "medium" || difficulty == "hard")) {
+          alert("Please select a difficulty");
+          throw ("Please select a difficulty");
+        }
+
+        let difficultyInt;
+        switch (difficulty) {
+          case "easy":
+            difficultyInt = 0;
+            break;
+          case "medium":
+            difficultyInt = 1;
+            break;
+          case "hard":
+            difficultyInt = 2
+            break;
+          default:
+            alert("Difficulty selection not recognised");
+            throw ("Difficulty selection not recognised");
+        }
+
+        if (event.target.files.length > 0) {
+          const file = event.target.files[0];
+          const fileName = file.name.split('.').slice(0, -1).join('.');
+
+          if (file.name.endsWith('.timber')) {
+            try {
+              const zip = await JSZip.loadAsync(file);
+              // Find and update "world.json"
+              const worldEntry = zip.file("world.json");
+
+              if (worldEntry) {
+                const fileContent = await worldEntry.async('string');
+                const modifiedContent = processFile(fileContent, difficultyInt);
+
+                // Replace "world.json" in the zip with modified content
+                zip.file("world.json", modifiedContent);
+
+                // Generate the updated zip file and download it
+                const updatedZip = await zip.generateAsync({ type: 'blob' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(updatedZip);
+                link.download = `${fileName}-U6.timber`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+              } else {
+                handleError("world.json not found in the zip file", "File Not Found");
+              }
+            } catch (err) {
+              handleError(err, "Error loading zip file");
+            }
+          } else {
+            handleError("The file supplied was not of the correct file type. Please select a .timber file", "Incorrect File Type");
+          }
+        }
+      });
+    }
+
+    // difficulty - 0 = easy, 1 = medium, 2 = hard
+    function processFile(fileContent, difficulty) {
+      // Read file content and extract important info
+      const worldJSON = JSON.parse(fileContent);
+
+      let temp;
+      // Set template
+      switch (difficulty) {
+        case 0:
+          temp = easy;
+          break;
+        case 1:
+          temp = medium;
+          break;
+        case 2:
+          temp = hard;
+          break;
+        default:
+          alert("Invalid difficulty selected");
+          throw ("Invalid difficulty selected");
+      }
+      const template = temp;
+
+      // TemperateWeatherDurationService
+      worldJSON.Singletons.TemperateWeatherDurationService = template.TemperateWeatherDurationService;
+
+      // DroughtWeather
+      worldJSON.Singletons.DroughtWeather = template.DroughtWeather;
+
+      // BadtideWeather
+      worldJSON.Singletons.BadtideWeather = template.BadtideWeather;
+
+      // HazardousWeatherService
+      worldJSON.Singletons.HazardousWeatherService.HazardousWeatherDuration = template.HazardousWeatherService.HazardousWeatherDuration;
+
+      // WeatherService
+      worldJSON.Singletons.WeatherService.TemperateWeatherDuration = template.WeatherService.TemperateWeatherDuration;
+
+      // NeedModificationService
+      worldJSON.Singletons.NeedModificationService = template.NeedModificationService;
+
+      // EffectProbabilityService
+      worldJSON.Singletons.EffectProbabilityService = template.EffectProbabilityService;
+
+      // GoodRecoveryRateService
+      worldJSON.Singletons.GoodRecoveryRateService = template.GoodRecoveryRateService;
+
+      // stringify the modified content and return it
+      modifiedContent = JSON.stringify(worldJSON);
+      return modifiedContent;
+    }
+
+    function handleError(error, errorTitle = "") {
+      console.error(`${errorTitle}:`, error);
+      alert(`${errorTitle}: ${error}`);
+    }
+
+    // Initialize the file picker handler
+    window.addEventListener('DOMContentLoaded', handleFileSelection);
+
+    const easy = {
+      "TemperateWeatherDurationService": {
+        "MinTemperateWeatherDuration": 16,
+        "MaxTemperateWeatherDuration": 19
+      },
+      "DroughtWeather": {
+        "MinDroughtDuration": 2,
+        "MaxDroughtDuration": 4,
+        "HandicapMultiplier": 0.25,
+        "HandicapCycles": 8
+      },
+      "BadtideWeather": {
+        "MinBadtideWeatherDuration": 1,
+        "MaxBadtideWeatherDuration": 3,
+        "HandicapMultiplier": 0.3,
+        "HandicapCycles": 6,
+        "CyclesBeforeRandomizing": 5,
+        "ChanceBadtideWeather": 0.4
+      },
+      "HazardousWeatherService": {
+        "HazardousWeatherDuration": 1,
+      },
+      "WeatherService": {
+        "TemperateWeatherDuration": 18
+      },
+      "NeedModificationService": {
+        "FoodConsumption": 0.4,
+        "WaterConsumption": 0.4
+      },
+      "EffectProbabilityService": {
+        "InjuryChanceModifier": 0.3
+      },
+      "GoodRecoveryRateService": {
+        "DemolishableRecoveryRate": 0.9
+      },
+    };
+
+    const medium = {
+      "TemperateWeatherDurationService": {
+        "MinTemperateWeatherDuration": 13,
+        "MaxTemperateWeatherDuration": 17
+      },
+      "DroughtWeather": {
+        "MinDroughtDuration": 5,
+        "MaxDroughtDuration": 9,
+        "HandicapMultiplier": 0.38,
+        "HandicapCycles": 5
+      },
+      "BadtideWeather": {
+        "MinBadtideWeatherDuration": 4,
+        "MaxBadtideWeatherDuration": 8,
+        "HandicapMultiplier": 0.15,
+        "HandicapCycles": 5,
+        "CyclesBeforeRandomizing": 4,
+        "ChanceBadtideWeather": 0.4
+      },
+      "HazardousWeatherService": {
+        "HazardousWeatherDuration": 3,
+      },
+      "WeatherService": {
+        "TemperateWeatherDuration": 14
+      },
+      "NeedModificationService": {
+        "FoodConsumption": 1.0,
+        "WaterConsumption": 1.0
+      },
+      "EffectProbabilityService": {
+        "InjuryChanceModifier": 1.0
+      },
+      "GoodRecoveryRateService": {
+        "DemolishableRecoveryRate": 0.75
+      },
+    };
+
+    const hard = {
+      "TemperateWeatherDurationService": {
+        "MinTemperateWeatherDuration": 5,
+        "MaxTemperateWeatherDuration": 8
+      },
+      "DroughtWeather": {
+        "MinDroughtDuration": 15,
+        "MaxDroughtDuration": 30,
+        "HandicapMultiplier": 0.2,
+        "HandicapCycles": 12
+      },
+      "BadtideWeather": {
+        "MinBadtideWeatherDuration": 15,
+        "MaxBadtideWeatherDuration": 30,
+        "HandicapMultiplier": 0.4,
+        "HandicapCycles": 9,
+        "CyclesBeforeRandomizing": 3,
+        "ChanceBadtideWeather": 0.4
+      },
+      "HazardousWeatherService": {
+        "HazardousWeatherDuration": 4,
+      },
+      "WeatherService": {
+        "TemperateWeatherDuration": 7
+      },
+      "NeedModificationService": {
+        "FoodConsumption": 1.0,
+        "WaterConsumption": 1.0
+      },
+      "EffectProbabilityService": {
+        "InjuryChanceModifier": 1.0
+      },
+      "GoodRecoveryRateService": {
+        "DemolishableRecoveryRate": 0.75
+      },
+    };
+  </script>
+
+</body>
+
+</html>
